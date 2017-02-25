@@ -181,17 +181,23 @@ def forward_message(msg,src_group,target_groups):
             # 如果不是at消息：即普通文本消息
             # bot回复论坛消息
             response = handle_text_msg(msg).get("response") #handle_text_msg对消息做个分类，只做分析，handle_text_msg不主动发送消息，此处可嵌入插件
+            broadcasting=handle_text_msg(msg).get("broadcasting")
             if response:
                 # 只回复本群
                 itchat.send(response,src_group._group_id)
-            else:
-              # 推送到其他群
-              for group in target_groups:
-                now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                logger.info((now, group._group_name, msg['ActualNickName'], msg["Text"]))
-                #if group._group_id:
-                message = '{}-at_id:{} 发言 ：\n{}'.format(msg['ActualNickName'],msg['at_id'],msg['Text'])
-                itchat.send(message,group._group_id) # 采用异步
+            elif broadcasting:
+                #广播，既回复本群也推送到其他群
+                itchat.send(broadcasting,src_group._group_id)#回复本群
+                for group in target_groups:#推送
+                    itchat.send(broadcasting,group._group_id)
+            else:  
+                # 推送到其他群
+                for group in target_groups:
+                    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    logger.info((now, group._group_name, msg['ActualNickName'], msg["Text"]))
+                    #if group._group_id:
+                    message = '{}-at_id:{} 发言 ：\n{}'.format(msg['ActualNickName'],msg['at_id'],msg['Text'])
+                    itchat.send(message,group._group_id) # 采用异步
     #之后的消息统一转发
     if msg["Type"] == 'Picture':
             # todo：上传到云端
@@ -246,6 +252,14 @@ def handle_text_msg(msg):
             # 其中username为微信用户昵称，clean_content为发帖内容
             response = "@{} 提问成功：）".format(username)
             return {'type':'q','response':response}
+    if content=="论坛机器人说明":
+        broadcasting = "论坛机器人说明:论坛机器人自动转发来自其他群的消息，\
+        实现了多个微信群间的即时通讯，作者wwj718，具体设计及技术细节请参考作者文章 \
+        http://mp.weixin.qq.com/s/QbO2TN_K4gW6l4_nE-cLqw ,\
+        以及作者的GitHub：https://github.com/wwj718 \
+        在任意群内发送命令“论坛机器人说明”即可将此说明广播到所有群内"
+        return {'type':'Bot help','broadcasting':broadcasting}
+
     #if '/bot/t' in content:
     '''
     if content.startswith('[得意]'):
